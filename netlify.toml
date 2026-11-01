@@ -1,0 +1,13 @@
+# Netlify configuration for SALEH GAMING
+[build]
+  publish = "."
+  # No build command needed — pure static site
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Role = ["admin"]}
+
+[build.environment]
+  NODE_VERSION = "18"

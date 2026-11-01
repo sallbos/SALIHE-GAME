@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="SALEH GAMING — Play 10 browser games instantly. No download needed. Built by Saleh Abdelqayoum Bachikh, Game Developer & Cybersecurity Specialist." />
+  <meta name="keywords" content="browser games, online games, saleh gaming, html5 games, snake, 2048, chess, space shooter" />
+  <meta name="author" content="Saleh Abdelqayoum Bachikh" />
+  <meta property="og:title" content="SALEH GAMING — Browser Gaming Platform" />
+  <meta property="og:description" content="Play 10 incredible browser games instantly — no download required. Built by Saleh Abdelqayoum Bachikh." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="assets/icons/icon-512.png" />
+  <meta name="theme-color" content="#6c00ff" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="assets/icons/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+  <title>SALEH GAMING — Browser Gaming Platform</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ===== NAVBAR ===== -->
+<nav class="navbar" id="navbar">
+  <div class="nav-container">
+    <a href="#home" class="nav-logo" onclick="showSection('home')">
+      <span class="logo-icon">⚡</span>
+      <span class="logo-text">SALEH <span class="logo-accent">GAMING</span></span>
+    </a>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#home" onclick="showSection('home'); closeMobileMenu()">Home</a></li>
+      <li><a href="#games" onclick="showSection('games'); closeMobileMenu()">Games</a></li>
+      <li><a href="#about" onclick="showSection('about'); closeMobileMenu()">About</a></li>
+      <li><a href="#contact" onclick="showSection('contact'); closeMobileMenu()">Contact</a></li>
+    </ul>
+    <button class="btn-install" id="installBtn" style="display:none" onclick="installPWA()">📲 Install App</button>
+  </div>
+</nav>
+
+<!-- ===== HOME SECTION ===== -->
+<section class="section" id="home">
+  <div class="hero">
+    <div class="hero-bg-animation"></div>
+    <div class="hero-content">
+      <div class="hero-badge">🎮 Browser Gaming Platform</div>
+      <h1 class="hero-title">
+        <span class="logo-icon-big">⚡</span>
+        SALEH <span class="accent">GAMING</span>
+      </h1>
+      <p class="hero-subtitle">10 Premium Games · No Download · Play Instantly</p>
+      <p class="hero-desc">
+        Welcome to <strong>SALEH GAMING</strong> — your ultimate browser gaming destination.
+        Play 10 handcrafted games directly in your browser, on any device, anywhere.
+        Built with passion by <strong>Saleh Abdelqayoum Bachikh</strong>, 
+        Game Developer &amp; Cybersecurity Specialist.
+      </p>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-num">10</span><span class="stat-label">Games</span></div>
+        <div class="stat"><span class="stat-num">0</span><span class="stat-label">Downloads</span></div>
+        <div class="stat"><span class="stat-num">∞</span><span class="stat-label">Fun</span></div>
+      </div>
+      <div class="hero-buttons">
+        <button class="btn btn-primary" onclick="showSection('games')">🎮 PLAY NOW</button>
+        <button class="btn btn-secondary" onclick="showSection('about')">👤 ABOUT ME</button>
+        <button class="btn btn-outline" onclick="showSection('contact')">✉️ CONTACT</button>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="floating-cards">
+        <div class="float-card fc1">🐍</div>
+        <div class="float-card fc2">♟️</div>
+        <div class="float-card fc3">🚀</div>
+        <div class="float-card fc4">🎯</div>
+        <div class="float-card fc5">🏎️</div>
+        <div class="float-card fc6">🧠</div>
+      </div>
+    </div>
+  </div>
+  <!-- Featured Games Preview -->
+  <div class="featured-section">
+    <h2 class="section-title">Featured Games</h2>
+    <div class="featured-grid">
+      <div class="featured-card" onclick="launchGame('snake')">
+        <div class="fc-icon">🐍</div>
+        <h3>Snake</h3>
+        <span class="fc-tag">Classic</span>
+      </div>
+      <div class="featured-card" onclick="launchGame('chess')">
+        <div class="fc-icon">♟️</div>
+        <h3>Chess</h3>
+        <span class="fc-tag">Strategy</span>
+      </div>
+      <div class="featured-card" onclick="launchGame('space-shooter')">
+        <div class="fc-icon">🚀</div>
+        <h3>Space Shooter</h3>
+        <span class="fc-tag">Arcade</span>
+      </div>
+      <div class="featured-card" onclick="launchGame('2048')">
+        <div class="fc-icon">🔢</div>
+        <h3>2048</h3>
+        <span class="fc-tag">Puzzle</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== GAMES SECTION ===== -->
+<section class="section hidden" id="games">
+  <div class="games-header">
+    <h2 class="section-title">🎮 Games Library</h2>
+    <p class="section-sub">10 handcrafted browser games — no download required</p>
+    <div class="games-controls">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search games..." oninput="filterGames()" />
+      </div>
+      <div class="filter-tabs" id="filterTabs">
+        <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+        <button class="filter-btn" onclick="setFilter('classic', this)">Classic</button>
+        <button class="filter-btn" onclick="setFilter('puzzle', this)">Puzzle</button>
+        <button class="filter-btn" onclick="setFilter('arcade', this)">Arcade</button>
+        <button class="filter-btn" onclick="setFilter('strategy', this)">Strategy</button>
+      </div>
+    </div>
+  </div>
+  <div class="games-grid" id="gamesGrid">
+    <!-- Cards injected by JS -->
+  </div>
+  <p class="no-results hidden" id="noResults">No games found. Try a different search.</p>
+</section>
+
+<!-- ===== GAME PLAYER SECTION ===== -->
+<section class="section hidden" id="player">
+  <div class="player-container">
+    <div class="player-header">
+      <button class="btn btn-back" onclick="exitGame()">← Back to Games</button>
+      <h2 class="player-title" id="playerTitle">Game</h2>
+      <div class="player-actions">
+        <button class="btn btn-sm" id="restartBtn" onclick="restartCurrentGame()">🔄 Restart</button>
+        <button class="btn btn-sm" id="fullscreenBtn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+      </div>
+    </div>
+    <div class="player-instructions" id="playerInstructions"></div>
+    <div class="player-frame" id="playerFrame">
+      <!-- game iframe or canvas injected here -->
+    </div>
+  </div>
+</section>
+
+<!-- ===== ABOUT SECTION ===== -->
+<section class="section hidden" id="about">
+  <div class="about-container">
+    <div class="about-hero">
+      <div class="about-avatar">
+        <div class="avatar-ring">
+          <div class="avatar-inner">SB</div>
+        </div>
+        <div class="avatar-glow"></div>
+      </div>
+      <div class="about-intro">
+        <div class="about-badge">👤 About Me</div>
+        <h2 class="about-name">Saleh Abdelqayoum Bachikh</h2>
+        <p class="about-role">🎮 Game Developer &amp; 🔐 Cybersecurity Specialist</p>
+        <p class="about-desc">
+          Hello! I'm <strong>Saleh Abdelqayoum Bachikh</strong>, a passionate game developer 
+          and cybersecurity specialist. I created <strong>SALEH GAMING</strong> to bring 
+          premium browser gaming experiences to everyone — with zero downloads and zero barriers.
+        </p>
+        <p class="about-desc">
+          This platform features 10 fully handcrafted games built with pure HTML5, CSS3, 
+          and JavaScript. Every game runs directly in your browser, on any device — 
+          from high-end computers to budget smartphones.
+        </p>
+        <div class="about-skills">
+          <span class="skill-tag">🎮 Game Development</span>
+          <span class="skill-tag">🔐 Cybersecurity</span>
+          <span class="skill-tag">💻 JavaScript</span>
+          <span class="skill-tag">🎨 UI/UX Design</span>
+          <span class="skill-tag">📱 Mobile Dev</span>
+          <span class="skill-tag">⚙️ HTML5 Canvas</span>
+        </div>
+        <div class="about-buttons">
+          <button class="btn btn-primary" onclick="showSection('games')">🎮 Play My Games</button>
+          <button class="btn btn-outline" onclick="showSection('contact')">✉️ Get In Touch</button>
+        </div>
+      </div>
+    </div>
+    <div class="about-cards">
+      <div class="about-card">
+        <div class="ac-icon">🎮</div>
+        <h3>Game Development</h3>
+        <p>Expert in creating browser-based games using HTML5 Canvas, JavaScript, and modern web APIs.</p>
+      </div>
+      <div class="about-card">
+        <div class="ac-icon">🔐</div>
+        <h3>Cybersecurity</h3>
+        <p>Specialist in web security, ethical hacking, and building secure digital experiences.</p>
+      </div>
+      <div class="about-card">
+        <div class="ac-icon">📱</div>
+        <h3>Cross-Platform</h3>
+        <p>All games optimized for mobile, tablet, and desktop — Android, iOS, and all modern browsers.</p>
+      </div>
+      <div class="about-card">
+        <div class="ac-icon">⚡</div>
+        <h3>Performance</h3>
+        <p>Lightweight, fast-loading games optimized for low-end devices and slow connections.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CONTACT SECTION ===== -->
+<section class="section hidden" id="contact">
+  <div class="contact-container">
+    <div class="contact-header">
+      <div class="about-badge">✉️ Contact</div>
+      <h2 class="section-title">Get In Touch</h2>
+      <p class="section-sub">Have a question or want to collaborate? Reach out!</p>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-info">
+        <h3>Contact Information</h3>
+        <div class="contact-item">
+          <span class="ci-icon">📧</span>
+          <div>
+            <strong>Email</strong>
+            <a href="mailto:salehebachike@gmail.com" class="ci-link">salehebachike@gmail.com</a>
+          </div>
+        </div>
+        <div class="contact-item">
+          <span class="ci-icon">🎮</span>
+          <div>
+            <strong>Platform</strong>
+            <span class="ci-text">SALEH GAMING</span>
+          </div>
+        </div>
+        <div class="contact-item">
+          <span class="ci-icon">👤</span>
+          <div>
+            <strong>Name</strong>
+            <span class="ci-text">Saleh Abdelqayoum Bachikh</span>
+          </div>
+        </div>
+        <div class="contact-item">
+          <span class="ci-icon">💼</span>
+          <div>
+            <strong>Role</strong>
+            <span class="ci-text">Game Developer &amp; Cybersecurity Specialist</span>
+          </div>
+        </div>
+        <a href="mailto:salehebachike@gmail.com" class="btn btn-primary contact-email-btn">
+          📧 Send Direct Email
+        </a>
+      </div>
+      <div class="contact-form-wrap">
+        <form class="contact-form" id="contactForm" onsubmit="handleContact(event)" netlify>
+          <div class="form-group">
+            <label for="cName">Your Name *</label>
+            <input type="text" id="cName" name="name" placeholder="John Doe" required minlength="2" maxlength="60" />
+          </div>
+          <div class="form-group">
+            <label for="cEmail">Your Email *</label>
+            <input type="email" id="cEmail" name="email" placeholder="john@example.com" required />
+          </div>
+          <div class="form-group">
+            <label for="cSubject">Subject *</label>
+            <input type="text" id="cSubject" name="subject" placeholder="Game feedback, collaboration..." required minlength="3" maxlength="100" />
+          </div>
+          <div class="form-group">
+            <label for="cMessage">Message *</label>
+            <textarea id="cMessage" name="message" rows="5" placeholder="Write your message here..." required minlength="10" maxlength="2000"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full">📤 Send Message</button>
+          <p class="form-note">
+            ⚠️ This form uses <strong>Netlify Forms</strong>. It will work after deployment to Netlify. 
+            Alternatively, <a href="mailto:salehebachike@gmail.com">email directly</a>.
+          </p>
+        </form>
+        <div class="form-success hidden" id="formSuccess">
+          <div class="success-icon">✅</div>
+          <h3>Message Sent!</h3>
+          <p>Thank you for reaching out. I'll get back to you soon!</p>
+          <button class="btn btn-outline" onclick="resetContactForm()">Send Another</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  <div class="footer-container">
+    <div class="footer-brand">
+      <span class="logo-icon">⚡</span>
+      <span class="logo-text">SALEH <span class="logo-accent">GAMING</span></span>
+      <p>Premium browser gaming. No download. Play anywhere.</p>
+    </div>
+    <div class="footer-links">
+      <h4>Navigation</h4>
+      <ul>
+        <li><a href="#" onclick="showSection('home')">Home</a></li>
+        <li><a href="#" onclick="showSection('games')">Games</a></li>
+        <li><a href="#" onclick="showSection('about')">About</a></li>
+        <li><a href="#" onclick="showSection('contact')">Contact</a></li>
+      </ul>
+    </div>
+    <div class="footer-games">
+      <h4>Quick Play</h4>
+      <ul>
+        <li><a href="#" onclick="launchGame('snake')">Snake</a></li>
+        <li><a href="#" onclick="launchGame('2048')">2048</a></li>
+        <li><a href="#" onclick="launchGame('chess')">Chess</a></li>
+        <li><a href="#" onclick="launchGame('space-shooter')">Space Shooter</a></li>
+      </ul>
+    </div>
+    <div class="footer-contact">
+      <h4>Contact</h4>
+      <a href="mailto:salehebachike@gmail.com" class="footer-email">salehebachike@gmail.com</a>
+      <p class="footer-owner">Saleh Abdelqayoum Bachikh</p>
+      <p class="footer-role">Game Developer &amp; Cybersecurity Specialist</p>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2024 SALEH GAMING · Built by Saleh Abdelqayoum Bachikh · All rights reserved</p>
+  </div>
+</footer>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
