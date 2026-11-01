@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Bubble Shooter</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f0f1a;
+    color: #e8e8f0;
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 12px;
+    overflow: hidden;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    color: #6c00ff;
+    text-shadow: 0 0 20px #6c00ff88;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  #hud {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    color: #aaaacc;
+  }
+  #hud span b { color: #00b4ff; }
+
+  #game-wrap {
+    position: relative;
+    display: inline-block;
+  }
+
+  canvas {
+    display: block;
+    border: 2px solid #6c00ff55;
+    border-radius: 8px;
+    box-shadow: 0 0 30px #6c00ff44;
+    touch-action: none;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+
+  #instructions {
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: #7777aa;
+    text-align: center;
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+<h1>● Bubble Shooter</h1>
+<div id="hud">
+  <span>Score: <b id="hud-score">0</b></span>
+  <span>High Score: <b id="hud-hi">0</b></span>
+  <span>Shots: <b id="hud-shots">0</b></span>
+</div>
+<div id="game-wrap">
+  <canvas id="c" width="400" height="600"></canvas>
+</div>
+<div id="instructions">
+  🖱️ Move mouse to aim, click to shoot &nbsp;|&nbsp; ⌨️ ← → to aim, Space to shoot<br>
+  📱 Touch to aim and shoot &nbsp;|&nbsp; Pop 3+ same-color bubbles to score!
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════
+//  CANVAS SETUP & SCALING
+// ═══════════════════════════════════════════════
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const W = 400, H = 600;
+
+// Scale canvas to fit screen while preserving aspect ratio
+function scaleCanvas() {
+  const maxW = Math.min(window.innerWidth - 24, 480);
+  const maxH = window.innerHeight - 180;
+  const scale = Math.min(maxW / W, maxH / H, 1);
+  canvas.style.width  = (W * scale) + 'px';
+  canvas.style.height = (H * scale) + 'px';
+}
+scaleCanvas();
+window.addEventListener('resize', scaleCanvas);
+
+function canvasPoint(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = W / rect.width, sy = H / rect.height;
+  return { x: (clientX - rect.left) * sx, y: (clientY - rect.top)  * sy };
+}
+
+// ═══════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════
+const COLS = 10;
+const ROWS = 8;       // initial filled rows
+const R    = 18;      // bubble radius
+const DIA  = R * 2;
+const ROW_H = Math.round(R * Math.sqrt(3)); // hex vertical spacing ≈ 31px
+const GRID_TOP = 40;  // px from top of canvas
+const SHOOTER_X = W / 2;
+const SHOOTER_Y = H - 48;
+const BULLET_SPEED = 10;
+const DESCENT_EVERY = 10; // shots before grid descends
+
+// 6 color-blind-friendly colors + fill patterns
+const COLORS = [
+  { id:0, name:'Red',    fill:'#e63946', stroke:'#ff6b6b', pattern:'cross'   },
+  { id:1, name:'Blue',   fill:'#00b4ff', stroke:'#55d4ff', pattern:'dots'    },
+  { id:2, name:'Green',  fill:'#2dc653', stroke:'#60f080', pattern:'stripes' },
+  { id:3, name:'Yellow', fill:'#ffd700', stroke:'#ffe55c', pattern:'diamond' },
+  { id:4, name:'Purple', fill:'#6c00ff', stroke:'#9955ff', pattern:'lines'   },
+  { id:5, name:'Orange', fill:'#ff7700', stroke:'#ffaa44', pattern:'grid'    },
+];
+
+// ═══════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════
+let grid;        // 2D array [row][col] = colorId or null
+let gridOffset;  // extra px rows shifted down
+let bullet;      // {x, y, vx, vy, color} or null
+let nextColor;
+let shooterAngle;// radians from vertical
+let score, hiScore, shots;
+let particles;
+let gameState;   // 'playing' | 'win' | 'lose'
+let frameId;
+let keyLeft=false, keyRight=false;
+let patternCache = {}; // offscreen pattern canvases
+
+// High score
+hiScore = parseInt(localStorage.getItem('bubbleHi')||'0');
+
+// ═══════════════════════════════════════════════
+//  PATTERN DRAWING (for color-blind differentiation)
+// ═══════════════════════════════════════════════
+function makePattern(colorObj) {
+  const key = colorObj.id;
+  if(patternCache[key]) return patternCache[key];
+  const pc = document.createElement('canvas');
+  pc.width = pc.height = 36;
+  const px = pc.getContext('2d');
+  px.fillStyle = colorObj.fill;
+  px.fillRect(0,0,36,36);
+  px.strokeStyle = 'rgba(255,255,255,0.35)';
+  px.lineWidth = 1.5;
+  switch(colorObj.pattern){
+    case 'cross':
+      px.beginPath(); px.moveTo(18,4); px.lineTo(18,32); px.moveTo(4,18); px.lineTo(32,18); px.stroke();
+      break;
+    case 'dots':
+      for(const [dx,dy] of [[9,9],[27,9],[9,27],[27,27],[18,18]]){
+        px.beginPath(); px.arc(dx,dy,3,0,Math.PI*2); px.fillStyle='rgba(255,255,255,0.4)'; px.fill();
+      }
+      break;
+    case 'stripes':
+      for(let i=-36;i<72;i+=10){ px.beginPath(); px.moveTo(i,0); px.lineTo(i+36,36); px.stroke(); }
+      break;
+    case 'diamond':
+      px.beginPath(); px.moveTo(18,5); px.lineTo(31,18); px.lineTo(18,31); px.lineTo(5,18); px.closePath(); px.stroke();
+      break;
+    case 'lines':
+      for(let y=6;y<36;y+=10){ px.beginPath(); px.moveTo(2,y); px.lineTo(34,y); px.stroke(); }
+      break;
+    case 'grid':
+      for(let i=6;i<36;i+=10){
+        px.beginPath(); px.moveTo(i,0); px.lineTo(i,36);
+        px.moveTo(0,i); px.lineTo(36,i); px.stroke();
+      }
+      break;
+  }
+  patternCache[key] = pc;
+  return pc;
+}
+
+// ═══════════════════════════════════════════════
+//  GRID HELPERS
+// ═══════════════════════════════════════════════
+function bubbleX(col, row) {
+  const offset = (row % 2 === 0) ? 0 : R;
+  return R + col * DIA + offset;
+}
+function bubbleY(row) {
+  return GRID_TOP + gridOffset + row * ROW_H;
+}
+
+function initGrid() {
+  grid = [];
+  for(let r=0;r<ROWS;r++){
+    grid[r] = [];
+    for(let c=0;c<COLS;c++){
+      // Last col on odd rows only has 9 bubbles
+      if(r%2===1 && c===COLS-1){ grid[r][c]=null; continue; }
+      grid[r][c] = Math.floor(Math.random()*COLORS.length);
+    }
+  }
+  // Ensure grid has enough rows
+  for(let r=ROWS;r<ROWS+4;r++) grid[r]=new Array(COLS).fill(null);
+  gridOffset = 0;
+}
+
+function totalGridRows(){ return grid.length; }
+
+function colsInRow(r){ return r%2===1 ? COLS-1 : COLS; }
+
+// ── Snap bullet to nearest grid position ──
+function snapToGrid(bx, by) {
+  let bestDist = Infinity, bestR = -1, bestC = -1;
+  for(let r=0;r<totalGridRows();r++){
+    const maxC = colsInRow(r);
+    for(let c=0;c<maxC;c++){
+      const gx=bubbleX(c,r), gy=bubbleY(r);
+      if(gy < GRID_TOP-R) continue;
+      const d=(bx-gx)**2+(by-gy)**2;
+      if(d<bestDist){ bestDist=d; bestR=r; bestC=c; }
+    }
+  }
+  return {r:bestR, c:bestC};
+}
+
+// ── Find connected same-color bubbles (flood fill) ──
+function flood(startR, startC, colorId) {
+  const visited=new Set(), queue=[[startR,startC]];
+  visited.add(startR+'_'+startC);
+  while(queue.length){
+    const [r,c]=queue.shift();
+    for(const [nr,nc] of neighbors(r,c)){
+      if(nr<0||nr>=totalGridRows()||nc<0||nc>=colsInRow(nr)) continue;
+      if(grid[nr][nc]!==colorId) continue;
+      const k=nr+'_'+nc;
+      if(!visited.has(k)){ visited.add(k); queue.push([nr,nc]); }
+    }
+  }
+  return [...visited].map(k=>{ const [r,c]=k.split('_'); return {r:+r,c:+c}; });
+}
+
+// Hex neighbors (6-connected)
+function neighbors(r,c) {
+  const isOdd = r%2===1;
+  return [
+    [r-1, c + (isOdd?0:-1)],
+    [r-1, c + (isOdd?1:0)],
+    [r,   c-1],
+    [r,   c+1],
+    [r+1, c + (isOdd?0:-1)],
+    [r+1, c + (isOdd?1:0)],
+  ];
+}
+
+// ── Find floating bubbles (not connected to top row) ──
+function findFloating() {
+  const anchored = new Set();
+  const queue = [];
+  // Seed with all top-row bubbles
+  for(let c=0;c<colsInRow(0);c++){
+    if(grid[0][c]!==null&&grid[0][c]!==undefined){
+      const k='0_'+c;
+      if(!anchored.has(k)){ anchored.add(k); queue.push([0,c]); }
+    }
+  }
+  while(queue.length){
+    const [r,c]=queue.shift();
+    for(const [nr,nc] of neighbors(r,c)){
+      if(nr<0||nr>=totalGridRows()||nc<0||nc>=colsInRow(nr)) continue;
+      if(grid[nr][nc]===null||grid[nr][nc]===undefined) continue;
+      const k=nr+'_'+nc;
+      if(!anchored.has(k)){ anchored.add(k); queue.push([nr,nc]); }
+    }
+  }
+  const floating=[];
+  for(let r=0;r<totalGridRows();r++){
+    for(let c=0;c<colsInRow(r);c++){
+      if(grid[r][c]!==null&&grid[r][c]!==undefined){
+        if(!anchored.has(r+'_'+c)) floating.push({r,c});
+      }
+    }
+  }
+  return floating;
+}
+
+// ── Count remaining bubbles ──
+function countBubbles(){
+  let n=0;
+  for(let r=0;r<totalGridRows();r++) for(let c=0;c<colsInRow(r);c++) if(grid[r][c]!==null&&grid[r][c]!==undefined) n++;
+  return n;
+}
+
+// ── Descend grid by one row ──
+function descendGrid(){
+  gridOffset += ROW_H;
+  // If a bubble row crosses the death line
+  checkLoseLine();
+}
+
+function checkLoseLine(){
+  const deathY = H - 90;
+  for(let r=0;r<totalGridRows();r++){
+    const y=bubbleY(r);
+    if(y>deathY){
+      for(let c=0;c<colsInRow(r);c++){
+        if(grid[r][c]!==null&&grid[r][c]!==undefined){ endGame('lose'); return; }
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  PARTICLES
+// ═══════════════════════════════════════════════
+function spawnParticles(x, y, colorObj, count=12) {
+  for(let i=0;i<count;i++){
+    const angle=Math.random()*Math.PI*2;
+    const speed=1.5+Math.random()*3;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle)*speed,
+      vy: Math.sin(angle)*speed,
+      r:  3+Math.random()*4,
+      life: 1,
+      decay: 0.03+Math.random()*0.03,
+      color: colorObj.fill,
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  INIT / RESTART
+// ═══════════════════════════════════════════════
+function initGame() {
+  initGrid();
+  bullet = null;
+  nextColor = randColor();
+  shooterAngle = 0;
+  score = 0;
+  shots = 0;
+  particles = [];
+  gameState = 'playing';
+  updateHUD();
+  if(frameId) cancelAnimationFrame(frameId);
+  loop();
+}
+
+function randColor(){
+  // Pick a color that exists in the grid (or fallback random)
+  const present=new Set();
+  for(let r=0;r<totalGridRows();r++) for(let c=0;c<colsInRow(r);c++){
+    if(grid[r][c]!==null&&grid[r][c]!==undefined) present.add(grid[r][c]);
+  }
+  const arr=[...present];
+  if(arr.length===0) return Math.floor(Math.random()*COLORS.length);
+  return arr[Math.floor(Math.random()*arr.length)];
+}
+
+function updateHUD(){
+  document.getElementById('hud-score').textContent=score;
+  document.getElementById('hud-hi').textContent=hiScore;
+  document.getElementById('hud-shots').textContent=shots;
+}
+
+// ═══════════════════════════════════════════════
+//  SHOOTING
+// ═══════════════════════════════════════════════
+const MIN_ANGLE = -Math.PI/2 + 0.12;  // Can't shoot straight sideways
+const MAX_ANGLE =  Math.PI/2 - 0.12;
+
+function clampAngle(a){ return Math.max(-Math.PI/2+0.12, Math.min(Math.PI/2-0.12, a)); }
+
+function shoot(){
+  if(bullet || gameState!=='playing') return;
+  const color = nextColor;
+  nextColor = randColor();
+  const vx = Math.sin(shooterAngle) * BULLET_SPEED;
+  const vy = -Math.cos(shooterAngle) * BULLET_SPEED;
+  bullet = { x:SHOOTER_X, y:SHOOTER_Y, vx, vy, color };
+  shots++;
+  if(shots % DESCENT_EVERY === 0) descendGrid();
+  updateHUD();
+}
+
+// ═══════════════════════════════════════════════
+//  COLLISION & MATCHING
+// ═══════════════════════════════════════════════
+function processBulletCollision(){
+  if(!bullet) return;
+  const {x,y,color}=bullet;
+
+  // Check collision with each grid bubble
+  let hit=false;
+  outer: for(let r=0;r<totalGridRows();r++){
+    for(let c=0;c<colsInRow(r);c++){
+      if(grid[r][c]===null||grid[r][c]===undefined) continue;
+      const gx=bubbleX(c,r), gy=bubbleY(r);
+      if((x-gx)**2+(y-gy)**2 < (DIA-2)**2){ hit=true; break outer; }
+    }
+  }
+
+  // Hit top wall
+  if(y-R<=GRID_TOP){ hit=true; }
+
+  if(hit){
+    // Snap bullet to grid
+    const {r,c}=snapToGrid(x,y);
+    if(r<0||r>=totalGridRows()||grid[r][c]!==null){ bullet=null; return; }
+    // Make sure row exists
+    while(grid.length<=r+1) grid.push(new Array(COLS).fill(null));
+
+    grid[r][c]=color;
+    bullet=null;
+
+    // Match detection
+    const matched = flood(r,c,color);
+    if(matched.length>=3){
+      let pts=0;
+      matched.forEach(({r:mr,c:mc})=>{
+        const cx=bubbleX(mc,mr), cy=bubbleY(mr);
+        spawnParticles(cx,cy,COLORS[color]);
+        grid[mr][mc]=null;
+        pts+=10;
+      });
+      score+=pts;
+
+      // Remove floating bubbles
+      const floating=findFloating();
+      floating.forEach(({r:fr,c:fc})=>{
+        const cx=bubbleX(fc,fr), cy=bubbleY(fr);
+        spawnParticles(cx,cy,COLORS[grid[fr][fc]],6);
+        grid[fr][fc]=null;
+        score+=50;
+      });
+      updateHUD();
+    }
+
+    // Check win
+    if(countBubbles()===0){ endGame('win'); return; }
+    checkLoseLine();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  GAME OVER
+// ═══════════════════════════════════════════════
+function endGame(result){
+  gameState=result;
+  if(score>hiScore){
+    hiScore=score;
+    localStorage.setItem('bubbleHi',hiScore);
+  }
+  updateHUD();
+}
+
+// ═══════════════════════════════════════════════
+//  DRAWING
+// ═══════════════════════════════════════════════
+function drawBubble(cx,cy,colorId,alpha=1,scale=1){
+  if(colorId===null||colorId===undefined) return;
+  const col=COLORS[colorId];
+  ctx.save();
+  ctx.globalAlpha=alpha;
+  ctx.translate(cx,cy);
+  ctx.scale(scale,scale);
+  // Clip circle
+  ctx.beginPath();
+  ctx.arc(0,0,R-1,0,Math.PI*2);
+  ctx.clip();
+  // Draw pattern
+  const patCanvas=makePattern(col);
+  ctx.drawImage(patCanvas,-R+1,-R+1,DIA-2,DIA-2);
+  // Stroke
+  ctx.globalAlpha=alpha;
+  ctx.beginPath();
+  ctx.arc(0,0,R-1,0,Math.PI*2);
+  ctx.strokeStyle=col.stroke;
+  ctx.lineWidth=2;
+  ctx.stroke();
+  // Highlight
+  ctx.beginPath();
+  ctx.ellipse(-R*0.25,-R*0.3,R*0.35,R*0.22,Math.PI*0.3,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawGrid(){
+  for(let r=0;r<totalGridRows();r++){
+    const maxC=colsInRow(r);
+    for(let c=0;c<maxC;c++){
+      const colorId=grid[r][c];
+      if(colorId===null||colorId===undefined) continue;
+      const gx=bubbleX(c,r), gy=bubbleY(r);
+      if(gy<GRID_TOP-DIA||gy>H+DIA) continue;
+      drawBubble(gx,gy,colorId);
+    }
+  }
+}
+
+function drawShooter(){
+  // Base
+  ctx.save();
+  ctx.translate(SHOOTER_X,SHOOTER_Y);
+  // Draw angle indicator arm
+  ctx.rotate(shooterAngle);
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.lineTo(0,-44);
+  ctx.strokeStyle='#6c00ff';
+  ctx.lineWidth=4;
+  ctx.lineCap='round';
+  ctx.stroke();
+  ctx.restore();
+
+  // Current bubble in shooter
+  drawBubble(SHOOTER_X, SHOOTER_Y, bullet?bullet.color:nextColor);
+}
+
+function drawTrajectory(){
+  if(gameState!=='playing') return;
+  let tx=SHOOTER_X, ty=SHOOTER_Y;
+  let tvx=Math.sin(shooterAngle)*8, tvy=-Math.cos(shooterAngle)*8;
+  ctx.save();
+  ctx.setLineDash([6,8]);
+  ctx.strokeStyle='rgba(255,255,255,0.18)';
+  ctx.lineWidth=1.5;
+  ctx.beginPath();
+  ctx.moveTo(tx,ty);
+  let steps=0;
+  while(ty>GRID_TOP && steps<120){
+    tx+=tvx; ty+=tvy;
+    if(tx-R<0){ tx=R; tvx=-tvx; }
+    if(tx+R>W){ tx=W-R; tvx=-tvx; }
+    ctx.lineTo(tx,ty);
+    steps++;
+    // Stop if we'd hit a bubble
+    let hit=false;
+    for(let r=0;r<totalGridRows()&&!hit;r++){
+      for(let c=0;c<colsInRow(r)&&!hit;c++){
+        if(grid[r][c]===null||grid[r][c]===undefined) continue;
+        const gx=bubbleX(c,r),gy=bubbleY(r);
+        if((tx-gx)**2+(ty-gy)**2<(DIA+2)**2) hit=true;
+      }
+    }
+    if(hit) break;
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawNextBubble(){
+  ctx.save();
+  ctx.font='bold 11px Segoe UI';
+  ctx.fillStyle='#7777aa';
+  ctx.fillText('NEXT', SHOOTER_X+36, SHOOTER_Y+8);
+  ctx.restore();
+  drawBubble(SHOOTER_X+58, SHOOTER_Y, nextColor, 0.85, 0.75);
+}
+
+function drawParticles(){
+  for(const p of particles){
+    ctx.save();
+    ctx.globalAlpha=p.life;
+    ctx.fillStyle=p.color;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawDeathLine(){
+  ctx.save();
+  ctx.strokeStyle='rgba(255,60,60,0.4)';
+  ctx.lineWidth=1;
+  ctx.setLineDash([4,8]);
+  ctx.beginPath();
+  ctx.moveTo(0,H-90);
+  ctx.lineTo(W,H-90);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawOverlay(){
+  if(gameState==='playing') return;
+  // Dim background
+  ctx.save();
+  ctx.fillStyle='rgba(15,15,26,0.82)';
+  ctx.fillRect(0,0,W,H);
+
+  const isWin=gameState==='win';
+  // Title
+  ctx.font='bold 42px Segoe UI';
+  ctx.textAlign='center';
+  ctx.fillStyle=isWin?'#00b4ff':'#ff4444';
+  ctx.fillText(isWin?'YOU WIN!':'GAME OVER', W/2, H/2-70);
+
+  // Score
+  ctx.font='24px Segoe UI';
+  ctx.fillStyle='#e8e8f0';
+  ctx.fillText('Score: '+score, W/2, H/2-28);
+  ctx.font='16px Segoe UI';
+  ctx.fillStyle='#aaaacc';
+  ctx.fillText('High Score: '+hiScore, W/2, H/2+4);
+
+  // Restart button
+  const bw=160,bh=44,bx=W/2-bw/2,by=H/2+30;
+  const grad=ctx.createLinearGradient(bx,by,bx+bw,by+bh);
+  grad.addColorStop(0,'#6c00ff');
+  grad.addColorStop(1,'#00b4ff');
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  ctx.roundRect(bx,by,bw,bh,10);
+  ctx.fill();
+  ctx.font='bold 18px Segoe UI';
+  ctx.fillStyle='#fff';
+  ctx.fillText('↺ Play Again', W/2, by+bh/2+7);
+  // Store button rect for click
+  canvas._restartBtn={x:bx,y:by,w:bw,h:bh};
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════
+let lastTime=0;
+function loop(ts=0){
+  frameId=requestAnimationFrame(loop);
+  const dt=Math.min(ts-lastTime,50); lastTime=ts;
+
+  // Update bullet
+  if(bullet&&gameState==='playing'){
+    bullet.x+=bullet.vx;
+    bullet.y+=bullet.vy;
+    // Wall bounces
+    if(bullet.x-R<0){ bullet.x=R; bullet.vx=-bullet.vx; }
+    if(bullet.x+R>W){ bullet.x=W-R; bullet.vx=-bullet.vx; }
+    processBulletCollision();
+  }
+
+  // Update particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx; p.y+=p.vy;
+    p.vy+=0.08;
+    p.life-=p.decay;
+    if(p.life<=0) particles.splice(i,1);
+  }
+
+  // Keyboard aim
+  if(gameState==='playing'){
+    if(keyLeft)  shooterAngle=clampAngle(shooterAngle-0.03);
+    if(keyRight) shooterAngle=clampAngle(shooterAngle+0.03);
+  }
+
+  // Draw
+  ctx.clearRect(0,0,W,H);
+  // Background gradient
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#0f0f1a');
+  bg.addColorStop(1,'#161628');
+  ctx.fillStyle=bg;
+  ctx.fillRect(0,0,W,H);
+
+  drawDeathLine();
+  drawGrid();
+  drawTrajectory();
+  if(bullet) drawBubble(bullet.x,bullet.y,bullet.color);
+  drawShooter();
+  drawNextBubble();
+  drawParticles();
+  drawOverlay();
+}
+
+// ═══════════════════════════════════════════════
+//  INPUT HANDLING
+// ═══════════════════════════════════════════════
+canvas.addEventListener('mousemove', e=>{
+  if(gameState!=='playing') return;
+  const {x,y}=canvasPoint(e.clientX,e.clientY);
+  const dx=x-SHOOTER_X, dy=y-SHOOTER_Y;
+  shooterAngle=clampAngle(Math.atan2(dx,-dy));
+});
+
+canvas.addEventListener('click', e=>{
+  const {x,y}=canvasPoint(e.clientX,e.clientY);
+  if(gameState!=='playing'){
+    const btn=canvas._restartBtn;
+    if(btn&&x>=btn.x&&x<=btn.x+btn.w&&y>=btn.y&&y<=btn.y+btn.h) initGame();
+    return;
+  }
+  shoot();
+});
+
+canvas.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  const {x,y}=canvasPoint(t.clientX,t.clientY);
+  if(gameState!=='playing'){
+    const btn=canvas._restartBtn;
+    if(btn&&x>=btn.x&&x<=btn.x+btn.w&&y>=btn.y&&y<=btn.y+btn.h) initGame();
+    return;
+  }
+  const dx=x-SHOOTER_X, dy=y-SHOOTER_Y;
+  shooterAngle=clampAngle(Math.atan2(dx,-dy));
+  shoot();
+},{passive:false});
+
+canvas.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(gameState!=='playing') return;
+  const t=e.touches[0];
+  const {x,y}=canvasPoint(t.clientX,t.clientY);
+  const dx=x-SHOOTER_X, dy=y-SHOOTER_Y;
+  shooterAngle=clampAngle(Math.atan2(dx,-dy));
+},{passive:false});
+
+document.addEventListener('keydown', e=>{
+  switch(e.code){
+    case 'ArrowLeft':  keyLeft=true;  e.preventDefault(); break;
+    case 'ArrowRight': keyRight=true; e.preventDefault(); break;
+    case 'Space':
+      e.preventDefault();
+      if(gameState==='playing') shoot();
+      else initGame();
+      break;
+  }
+});
+document.addEventListener('keyup', e=>{
+  if(e.code==='ArrowLeft')  keyLeft=false;
+  if(e.code==='ArrowRight') keyRight=false;
+});
+
+// ═══════════════════════════════════════════════
+//  START
+// ═══════════════════════════════════════════════
+document.getElementById('hud-hi').textContent=hiScore;
+initGame();
+</script>
+</body>
+</html>

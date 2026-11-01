@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tic Tac Toe | SALEH GAMING</title>
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0a0f;
+    --text:      #e8e8f0;
+    --purple:    #6c00ff;
+    --purple-glow: rgba(108,0,255,0.6);
+    --blue:      #00b4ff;
+    --blue-glow: rgba(0,180,255,0.6);
+    --win-glow:  rgba(0,255,160,0.7);
+    --card-bg:   #12121e;
+    --border:    #1e1e35;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  body {
+    background: radial-gradient(ellipse at 50% 0%, #1a003a 0%, #0a0a0f 60%);
+    min-height: 100vh;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    width: 100%;
+    text-align: center;
+    padding: 24px 16px 8px;
+  }
+
+  .brand {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #555577;
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-size: clamp(26px, 5vw, 40px);
+    font-weight: 800;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, var(--purple) 0%, var(--blue) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 0 18px var(--purple-glow));
+  }
+
+  /* ===== SCORE BOARD ===== */
+  .scoreboard {
+    display: flex;
+    gap: 12px;
+    margin: 20px auto 0;
+    padding: 0 16px;
+    max-width: 400px;
+    width: 100%;
+  }
+
+  .score-card {
+    flex: 1;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 8px;
+    text-align: center;
+    transition: border-color 0.3s;
+  }
+
+  .score-card.purple { border-color: rgba(108,0,255,0.35); }
+  .score-card.draw   { border-color: rgba(120,120,160,0.35); }
+  .score-card.blue   { border-color: rgba(0,180,255,0.35); }
+
+  .score-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.55;
+    margin-bottom: 6px;
+  }
+
+  .score-value {
+    font-size: 28px;
+    font-weight: 800;
+  }
+
+  .score-card.purple .score-value { color: var(--purple); text-shadow: 0 0 12px var(--purple-glow); }
+  .score-card.draw   .score-value { color: #aaaacc; }
+  .score-card.blue   .score-value { color: var(--blue);   text-shadow: 0 0 12px var(--blue-glow); }
+
+  /* ===== STATUS ===== */
+  .status {
+    margin: 18px auto 0;
+    font-size: 14px;
+    letter-spacing: 1px;
+    opacity: 0.75;
+    height: 20px;
+    text-align: center;
+  }
+
+  /* ===== BOARD ===== */
+  .board-wrap {
+    margin: 18px auto 0;
+    padding: 0 16px;
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+  }
+
+  .cell {
+    aspect-ratio: 1;
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .cell:hover:not(.taken) {
+    border-color: rgba(108,0,255,0.5);
+    box-shadow: 0 0 18px rgba(108,0,255,0.15);
+    transform: scale(1.03);
+  }
+
+  .cell:active:not(.taken) {
+    transform: scale(0.97);
+  }
+
+  .cell.taken { cursor: default; }
+
+  /* Win highlight */
+  .cell.winning {
+    border-color: #00ffa0 !important;
+    box-shadow: 0 0 24px var(--win-glow), 0 0 60px rgba(0,255,160,0.3) !important;
+    animation: winPulse 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes winPulse {
+    from { box-shadow: 0 0 18px var(--win-glow); }
+    to   { box-shadow: 0 0 40px var(--win-glow), 0 0 80px rgba(0,255,160,0.4); }
+  }
+
+  /* ===== SVG SYMBOLS ===== */
+  .cell svg {
+    width: 55%;
+    height: 55%;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: drawSymbol 0.45s cubic-bezier(0.4,0,0.2,1) forwards;
+  }
+
+  @keyframes drawSymbol {
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* ===== BUTTONS ===== */
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    margin: 22px auto 0;
+    padding: 0 16px;
+    max-width: 360px;
+    width: 100%;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 12px 0;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn:active { transform: scale(0.96); }
+
+  .btn-restart {
+    background: linear-gradient(135deg, var(--purple), #9400ff);
+    color: #fff;
+    box-shadow: 0 4px 20px var(--purple-glow);
+  }
+
+  .btn-restart:hover { filter: brightness(1.15); box-shadow: 0 6px 28px var(--purple-glow); }
+
+  .btn-new {
+    background: transparent;
+    color: var(--text);
+    border: 1.5px solid var(--border);
+  }
+
+  .btn-new:hover { border-color: var(--blue); color: var(--blue); box-shadow: 0 0 14px var(--blue-glow); }
+
+  /* ===== INSTRUCTIONS ===== */
+  .instructions {
+    margin: 24px auto 30px;
+    padding: 0 16px;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.7;
+    opacity: 0.4;
+  }
+
+  /* ===== OVERLAY ===== */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.88);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s;
+  }
+
+  .overlay.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .overlay-card {
+    background: #10101e;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 32px;
+    text-align: center;
+    max-width: 320px;
+    width: 90%;
+    transform: scale(0.85);
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .overlay.active .overlay-card {
+    transform: scale(1);
+  }
+
+  .overlay-emoji {
+    font-size: 56px;
+    margin-bottom: 16px;
+    display: block;
+    animation: bounce 0.6s ease-out;
+  }
+
+  @keyframes bounce {
+    0%   { transform: scale(0) rotate(-10deg); }
+    60%  { transform: scale(1.2) rotate(5deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+
+  .overlay-title {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  .overlay-sub {
+    font-size: 13px;
+    opacity: 0.55;
+    margin-bottom: 28px;
+  }
+
+  .btn-overlay {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--purple), var(--blue));
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 4px 24px var(--purple-glow);
+    transition: filter 0.15s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-overlay:hover   { filter: brightness(1.15); }
+  .btn-overlay:active  { transform: scale(0.97); }
+
+  /* AI thinking indicator */
+  .thinking {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--blue);
+    box-shadow: 0 0 8px var(--blue-glow);
+    margin-left: 8px;
+    animation: blink 0.7s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.15; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">SALEH GAMING</div>
+  <h1>TIC TAC TOE</h1>
+</header>
+
+<!-- Score board -->
+<div class="scoreboard">
+  <div class="score-card purple">
+    <div class="score-label">You (X)</div>
+    <div class="score-value" id="scorePlayer">0</div>
+  </div>
+  <div class="score-card draw">
+    <div class="score-label">Draws</div>
+    <div class="score-value" id="scoreDraws">0</div>
+  </div>
+  <div class="score-card blue">
+    <div class="score-label">AI (O)</div>
+    <div class="score-value" id="scoreAI">0</div>
+  </div>
+</div>
+
+<!-- Status -->
+<div class="status" id="status">Your turn — play X</div>
+
+<!-- Board -->
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+</div>
+
+<!-- Buttons -->
+<div class="btn-row">
+  <button class="btn btn-restart" id="btnRestart">↺ Restart</button>
+  <button class="btn btn-new"     id="btnNew">New Game</button>
+</div>
+
+<!-- Instructions -->
+<div class="instructions">
+  You are <span style="color:var(--purple);font-weight:700">X</span> (Purple) &nbsp;·&nbsp;
+  AI is <span style="color:var(--blue);font-weight:700">O</span> (Blue)<br>
+  AI uses Minimax — can you force a draw? 🤔
+</div>
+
+<!-- Result Overlay -->
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <span class="overlay-emoji" id="overlayEmoji">🎉</span>
+    <div class="overlay-title" id="overlayTitle">You Win!</div>
+    <div class="overlay-sub"   id="overlaySub">Great move!</div>
+    <button class="btn-overlay" id="btnOverlay">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  TIC TAC TOE — Minimax AI
+// ============================================================
+
+const PLAYER = 'X';
+const AI     = 'O';
+const EMPTY  = null;
+
+// Win combinations (cell indices)
+const WIN_LINES = [
+  [0,1,2],[3,4,5],[6,7,8], // rows
+  [0,3,6],[1,4,7],[2,5,8], // cols
+  [0,4,8],[2,4,6]          // diags
+];
+
+// ---- State ----
+let board    = Array(9).fill(EMPTY);
+let gameOver = false;
+let playerTurn = true; // player goes first
+let scores   = { player: 0, ai: 0, draws: 0 };
+
+// ---- DOM refs ----
+const $board        = document.getElementById('board');
+const $status       = document.getElementById('status');
+const $scorePlayer  = document.getElementById('scorePlayer');
+const $scoreAI      = document.getElementById('scoreAI');
+const $scoreDraws   = document.getElementById('scoreDraws');
+const $overlay      = document.getElementById('overlay');
+const $overlayEmoji = document.getElementById('overlayEmoji');
+const $overlayTitle = document.getElementById('overlayTitle');
+const $overlaySub   = document.getElementById('overlaySub');
+
+// ---- Build board cells ----
+function buildBoard() {
+  $board.innerHTML = '';
+  board.forEach((_, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.dataset.idx = i;
+    cell.setAttribute('role', 'button');
+    cell.setAttribute('aria-label', `Cell ${i + 1}`);
+    cell.addEventListener('click', onCellClick);
+    $board.appendChild(cell);
+  });
+}
+
+// ---- Render a symbol (SVG) inside a cell ----
+function renderSymbol(cellEl, sym) {
+  cellEl.classList.add('taken');
+  if (sym === 'X') {
+    cellEl.innerHTML = `
+      <svg viewBox="0 0 100 100" fill="none"
+           stroke="#6c00ff" stroke-width="12" stroke-linecap="round">
+        <line x1="20" y1="20" x2="80" y2="80" />
+        <line x1="80" y1="20" x2="20" y2="80" />
+      </svg>`;
+    cellEl.style.borderColor = 'rgba(108,0,255,0.5)';
+    cellEl.style.boxShadow   = '0 0 18px rgba(108,0,255,0.3)';
+  } else {
+    cellEl.innerHTML = `
+      <svg viewBox="0 0 100 100" fill="none"
+           stroke="#00b4ff" stroke-width="12" stroke-linecap="round">
+        <circle cx="50" cy="50" r="32" />
+      </svg>`;
+    cellEl.style.borderColor = 'rgba(0,180,255,0.5)';
+    cellEl.style.boxShadow   = '0 0 18px rgba(0,180,255,0.3)';
+  }
+  // Trigger draw animation
+  const svg = cellEl.querySelector('svg');
+  if (svg) {
+    const els = svg.querySelectorAll('line, circle');
+    els.forEach(el => {
+      const len = el.tagName === 'circle' ? Math.PI * 2 * 32 : 200;
+      el.style.strokeDasharray  = len;
+      el.style.strokeDashoffset = len;
+      el.style.animation = `drawSymbol 0.45s cubic-bezier(0.4,0,0.2,1) forwards`;
+    });
+  }
+}
+
+// ---- Check winner ----
+function checkWinner(b) {
+  for (const [a, c, d] of WIN_LINES) {
+    if (b[a] && b[a] === b[c] && b[a] === b[d]) {
+      return { winner: b[a], line: [a, c, d] };
+    }
+  }
+  if (b.every(v => v !== EMPTY)) return { winner: 'draw', line: [] };
+  return null;
+}
+
+// ---- Minimax ----
+function minimax(b, isMaximizing) {
+  const result = checkWinner(b);
+  if (result) {
+    if (result.winner === AI)     return  10;
+    if (result.winner === PLAYER) return -10;
+    return 0; // draw
+  }
+
+  if (isMaximizing) {
+    let best = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (b[i] === EMPTY) {
+        b[i] = AI;
+        best = Math.max(best, minimax(b, false));
+        b[i] = EMPTY;
+      }
+    }
+    return best;
+  } else {
+    let best = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (b[i] === EMPTY) {
+        b[i] = PLAYER;
+        best = Math.min(best, minimax(b, true));
+        b[i] = EMPTY;
+      }
+    }
+    return best;
+  }
+}
+
+function bestMove() {
+  let best = -Infinity, move = -1;
+  for (let i = 0; i < 9; i++) {
+    if (board[i] === EMPTY) {
+      board[i] = AI;
+      const score = minimax(board, false);
+      board[i] = EMPTY;
+      if (score > best) { best = score; move = i; }
+    }
+  }
+  return move;
+}
+
+// ---- Event: cell click ----
+function onCellClick(e) {
+  if (gameOver || !playerTurn) return;
+  const idx = parseInt(e.currentTarget.dataset.idx);
+  if (board[idx] !== EMPTY) return;
+
+  makeMove(idx, PLAYER);
+}
+
+// ---- Make a move ----
+function makeMove(idx, sym) {
+  board[idx] = sym;
+  const cells = $board.querySelectorAll('.cell');
+  renderSymbol(cells[idx], sym);
+
+  const result = checkWinner(board);
+  if (result) {
+    endGame(result);
+    return;
+  }
+
+  if (sym === PLAYER) {
+    playerTurn = false;
+    setStatus(`AI is thinking<span class="thinking"></span>`);
+    // Small delay for UX — feels like AI "thinks"
+    setTimeout(() => {
+      if (!gameOver) {
+        const move = bestMove();
+        if (move !== -1) makeMove(move, AI);
+      }
+    }, 420);
+  } else {
+    playerTurn = true;
+    setStatus(`Your turn — play X`);
+  }
+}
+
+// ---- End game ----
+function endGame(result) {
+  gameOver = true;
+  const cells = $board.querySelectorAll('.cell');
+
+  if (result.winner === 'draw') {
+    scores.draws++;
+    setStatus('Draw!');
+    showOverlay('🤝', 'It\'s a Draw!', 'Nobody wins this round.');
+  } else if (result.winner === PLAYER) {
+    scores.player++;
+    result.line.forEach(i => cells[i].classList.add('winning'));
+    setStatus('You win! 🎉');
+    showOverlay('🏆', 'You Win!', 'Amazing — you beat the AI!');
+  } else {
+    scores.ai++;
+    result.line.forEach(i => cells[i].classList.add('winning'));
+    setStatus('AI wins! 🤖');
+    showOverlay('🤖', 'AI Wins!', 'Better luck next time.');
+  }
+
+  updateScores();
+}
+
+// ---- Overlay ----
+function showOverlay(emoji, title, sub) {
+  $overlayEmoji.textContent = emoji;
+  $overlayTitle.textContent = title;
+  $overlaySub.textContent   = sub;
+  $overlay.classList.add('active');
+}
+
+function hideOverlay() {
+  $overlay.classList.remove('active');
+}
+
+// ---- Status ----
+function setStatus(html) {
+  $status.innerHTML = html;
+}
+
+// ---- Update score display ----
+function updateScores() {
+  $scorePlayer.textContent = scores.player;
+  $scoreAI.textContent     = scores.ai;
+  $scoreDraws.textContent  = scores.draws;
+}
+
+// ---- Restart (same session scores) ----
+function restart() {
+  board      = Array(9).fill(EMPTY);
+  gameOver   = false;
+  playerTurn = true;
+  buildBoard();
+  setStatus('Your turn — play X');
+  hideOverlay();
+}
+
+// ---- New game (reset scores too) ----
+function newGame() {
+  scores = { player: 0, ai: 0, draws: 0 };
+  updateScores();
+  restart();
+}
+
+// ---- Button wiring ----
+document.getElementById('btnRestart').addEventListener('click', restart);
+document.getElementById('btnNew').addEventListener('click', newGame);
+document.getElementById('btnOverlay').addEventListener('click', restart);
+
+// ---- Init ----
+buildBoard();
+</script>
+</body>
+</html>

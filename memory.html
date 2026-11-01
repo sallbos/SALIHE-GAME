@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Match | SALEH GAMING</title>
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:           #0a0a0f;
+    --text:         #e8e8f0;
+    --purple:       #6c00ff;
+    --purple-glow:  rgba(108,0,255,0.6);
+    --blue:         #00b4ff;
+    --blue-glow:    rgba(0,180,255,0.6);
+    --green:        #00ffa0;
+    --green-glow:   rgba(0,255,160,0.55);
+    --card-bg:      #12121e;
+    --card-front:   #0e0e1c;
+    --border:       #1e1e35;
+  }
+
+  html, body {
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  body {
+    background: radial-gradient(ellipse at 50% 0%, #001a3a 0%, #0a0a0f 65%);
+    padding-bottom: 32px;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    width: 100%;
+    text-align: center;
+    padding: 24px 16px 0;
+  }
+
+  .brand {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #555577;
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-size: clamp(24px, 5vw, 38px);
+    font-weight: 800;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 18px var(--blue-glow));
+  }
+
+  /* ===== HUD ===== */
+  .hud {
+    display: flex;
+    gap: 14px;
+    margin: 20px auto 0;
+    padding: 0 16px;
+    max-width: 480px;
+    width: 100%;
+  }
+
+  .hud-card {
+    flex: 1;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+
+  .hud-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin-bottom: 4px;
+  }
+
+  .hud-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--blue);
+    text-shadow: 0 0 10px var(--blue-glow);
+  }
+
+  /* ===== GRID ===== */
+  .grid-wrap {
+    margin: 20px auto 0;
+    padding: 0 12px;
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    width: 100%;
+  }
+
+  /* ===== CARD ===== */
+  .card {
+    aspect-ratio: 1;
+    cursor: pointer;
+    perspective: 800px;
+    -webkit-tap-highlight-color: transparent;
+    border-radius: 12px;
+  }
+
+  .card-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 12px;
+  }
+
+  /* Flipped state */
+  .card.flipped .card-inner,
+  .card.matched .card-inner {
+    transform: rotateY(180deg);
+  }
+
+  /* Card faces */
+  .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Back face */
+  .card-back {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    flex-direction: column;
+    gap: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Subtle grid pattern on card back */
+  .card-back::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg,   transparent, transparent 10px, rgba(108,0,255,0.05) 10px, rgba(108,0,255,0.05) 11px),
+      repeating-linear-gradient(90deg,  transparent, transparent 10px, rgba(108,0,255,0.05) 10px, rgba(108,0,255,0.05) 11px);
+    border-radius: 12px;
+  }
+
+  .card-back-q {
+    font-size: clamp(20px, 5vw, 28px);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--purple), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+    z-index: 1;
+    line-height: 1;
+  }
+
+  .card-back-dots {
+    display: flex;
+    gap: 4px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .card-back-dots span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--purple);
+    opacity: 0.45;
+  }
+
+  /* Front face */
+  .card-front {
+    background: #0d0d1a;
+    border: 1.5px solid rgba(0,180,255,0.25);
+    transform: rotateY(180deg);
+    font-size: clamp(24px, 6vw, 36px);
+    box-shadow: inset 0 0 20px rgba(0,180,255,0.05);
+  }
+
+  /* Matched state */
+  .card.matched .card-front {
+    border-color: var(--green);
+    box-shadow:
+      0 0 18px var(--green-glow),
+      0 0 50px rgba(0,255,160,0.2),
+      inset 0 0 20px rgba(0,255,160,0.08);
+    animation: matchedPulse 1.4s ease-in-out infinite alternate;
+  }
+
+  @keyframes matchedPulse {
+    from { box-shadow: 0 0 12px var(--green-glow); }
+    to   { box-shadow: 0 0 30px var(--green-glow), 0 0 60px rgba(0,255,160,0.35); }
+  }
+
+  /* Match pop animation */
+  .card.matched .card-inner {
+    animation: matchPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation-delay: 0.1s;
+  }
+
+  @keyframes matchPop {
+    0%   { transform: rotateY(180deg) scale(1); }
+    50%  { transform: rotateY(180deg) scale(1.12); }
+    100% { transform: rotateY(180deg) scale(1); }
+  }
+
+  /* Wrong card shake */
+  .card.wrong .card-inner {
+    animation: shake 0.4s ease-in-out;
+  }
+
+  @keyframes shake {
+    0%,100% { transform: rotateY(180deg) translateX(0); }
+    25%      { transform: rotateY(180deg) translateX(-5px); }
+    75%      { transform: rotateY(180deg) translateX(5px); }
+  }
+
+  /* ===== BUTTONS ===== */
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    margin: 20px auto 0;
+    padding: 0 16px;
+    max-width: 480px;
+    width: 100%;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 13px 0;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.15s, filter 0.15s, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn:active { transform: scale(0.96); }
+
+  .btn-restart {
+    background: linear-gradient(135deg, var(--blue), #0060cc);
+    color: #fff;
+    box-shadow: 0 4px 20px var(--blue-glow);
+  }
+
+  .btn-restart:hover { filter: brightness(1.15); }
+
+  /* ===== INSTRUCTIONS ===== */
+  .instructions {
+    margin: 18px auto 0;
+    padding: 0 16px;
+    max-width: 480px;
+    width: 100%;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.7;
+    opacity: 0.38;
+  }
+
+  /* ===== WIN OVERLAY ===== */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.9);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+
+  .overlay.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .overlay-card {
+    background: #0e0e1e;
+    border: 1.5px solid var(--border);
+    border-radius: 22px;
+    padding: 40px 32px;
+    text-align: center;
+    max-width: 340px;
+    width: 92%;
+    transform: translateY(30px) scale(0.92);
+    transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .overlay.active .overlay-card {
+    transform: translateY(0) scale(1);
+  }
+
+  .overlay-trophy {
+    font-size: 64px;
+    display: block;
+    margin-bottom: 12px;
+    animation: trophyBounce 0.7s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  @keyframes trophyBounce {
+    0%   { transform: scale(0) rotate(-20deg); }
+    70%  { transform: scale(1.2) rotate(5deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+
+  .overlay-title {
+    font-size: 30px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 20px;
+  }
+
+  .overlay-stats {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .stat {
+    flex: 1;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 6px;
+  }
+
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin-bottom: 5px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--blue);
+  }
+
+  .stars {
+    font-size: 32px;
+    margin-bottom: 24px;
+    letter-spacing: 6px;
+  }
+
+  .star-msg {
+    font-size: 12px;
+    opacity: 0.5;
+    margin-top: -18px;
+    margin-bottom: 20px;
+  }
+
+  .btn-overlay {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--purple), var(--blue));
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 4px 24px var(--purple-glow);
+    transition: filter 0.15s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-overlay:hover  { filter: brightness(1.15); }
+  .btn-overlay:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">SALEH GAMING</div>
+  <h1>MEMORY MATCH</h1>
+</header>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-card">
+    <div class="hud-label">Moves</div>
+    <div class="hud-value" id="moves">0</div>
+  </div>
+  <div class="hud-card">
+    <div class="hud-label">Pairs</div>
+    <div class="hud-value" id="pairs">0 / 8</div>
+  </div>
+  <div class="hud-card">
+    <div class="hud-label">Time</div>
+    <div class="hud-value" id="timer">00:00</div>
+  </div>
+</div>
+
+<!-- Grid -->
+<div class="grid-wrap">
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- Buttons -->
+<div class="btn-row">
+  <button class="btn btn-restart" id="btnRestart">↺ Restart</button>
+</div>
+
+<!-- Instructions -->
+<div class="instructions">
+  Flip cards to find matching pairs · Fewer moves = more ⭐<br>
+  ⭐⭐⭐ ≤18 moves &nbsp;·&nbsp; ⭐⭐ ≤24 moves &nbsp;·&nbsp; ⭐ ≥25 moves
+</div>
+
+<!-- Win Overlay -->
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <span class="overlay-trophy">🏆</span>
+    <div class="overlay-title">Puzzle Solved!</div>
+    <div class="overlay-stats">
+      <div class="stat">
+        <div class="stat-label">Moves</div>
+        <div class="stat-value" id="finalMoves">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Time</div>
+        <div class="stat-value" id="finalTime">—</div>
+      </div>
+    </div>
+    <div class="stars" id="stars">⭐⭐⭐</div>
+    <div class="star-msg" id="starMsg">Perfect play!</div>
+    <button class="btn-overlay" id="btnOverlay">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  MEMORY MATCH GAME
+// ============================================================
+
+const EMOJIS = ['🎮','🚀','♟️','🐍','🎯','🏆','💎','🔥'];
+
+// ---- State ----
+let cards      = [];      // DOM elements
+let flipped    = [];      // currently flipped (unmatched)
+let matched    = 0;
+let moveCount  = 0;
+let locked     = false;   // prevent clicking during flip-back
+let timerInt   = null;
+let seconds    = 0;
+let gameActive = false;
+
+// ---- DOM ----
+const $grid      = document.getElementById('grid');
+const $moves     = document.getElementById('moves');
+const $pairs     = document.getElementById('pairs');
+const $timer     = document.getElementById('timer');
+const $overlay   = document.getElementById('overlay');
+const $finalMoves = document.getElementById('finalMoves');
+const $finalTime  = document.getElementById('finalTime');
+const $stars     = document.getElementById('stars');
+const $starMsg   = document.getElementById('starMsg');
+
+// ---- Shuffle helper (Fisher-Yates) ----
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ---- Format time MM:SS ----
+function formatTime(s) {
+  const m = Math.floor(s / 60).toString().padStart(2,'0');
+  const sec = (s % 60).toString().padStart(2,'0');
+  return `${m}:${sec}`;
+}
+
+// ---- Build / Rebuild the grid ----
+function buildGrid() {
+  // Reset state
+  flipped    = [];
+  matched    = 0;
+  moveCount  = 0;
+  locked     = false;
+  gameActive = false;
+  seconds    = 0;
+
+  clearInterval(timerInt);
+  $moves.textContent = '0';
+  $pairs.textContent = '0 / 8';
+  $timer.textContent = '00:00';
+  $overlay.classList.remove('active');
+
+  // Create 8 pairs, shuffle
+  const deck = shuffle([...EMOJIS, ...EMOJIS]);
+
+  $grid.innerHTML = '';
+  cards = [];
+
+  deck.forEach((emoji, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.emoji = emoji;
+    card.dataset.index = i;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', 'Memory card');
+
+    card.innerHTML = `
+      <div class="card-inner">
+        <div class="card-face card-back">
+          <div class="card-back-q">?</div>
+          <div class="card-back-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="card-face card-front">${emoji}</div>
+      </div>`;
+
+    card.addEventListener('click', onCardClick);
+    $grid.appendChild(card);
+    cards.push(card);
+  });
+}
+
+// ---- Start timer on first click ----
+function startTimer() {
+  if (gameActive) return;
+  gameActive = true;
+  timerInt = setInterval(() => {
+    seconds++;
+    $timer.textContent = formatTime(seconds);
+  }, 1000);
+}
+
+// ---- Card click handler ----
+function onCardClick(e) {
+  const card = e.currentTarget;
+
+  // Ignore: locked, already matched, already flipped
+  if (locked) return;
+  if (card.classList.contains('matched')) return;
+  if (card.classList.contains('flipped')) return;
+
+  startTimer();
+
+  // Flip this card
+  card.classList.add('flipped');
+  flipped.push(card);
+
+  if (flipped.length < 2) return; // wait for second card
+
+  // --- Two cards flipped ---
+  moveCount++;
+  $moves.textContent = moveCount;
+  locked = true;
+
+  const [a, b] = flipped;
+
+  if (a.dataset.emoji === b.dataset.emoji) {
+    // ✅ Match!
+    setTimeout(() => {
+      a.classList.add('matched');
+      b.classList.add('matched');
+      a.classList.remove('flipped');
+      b.classList.remove('flipped');
+
+      matched++;
+      $pairs.textContent = `${matched} / 8`;
+      flipped = [];
+      locked  = false;
+
+      if (matched === 8) endGame();
+    }, 400);
+  } else {
+    // ❌ No match — shake then flip back
+    setTimeout(() => {
+      a.classList.add('wrong');
+      b.classList.add('wrong');
+    }, 200);
+
+    setTimeout(() => {
+      a.classList.remove('flipped', 'wrong');
+      b.classList.remove('flipped', 'wrong');
+      flipped = [];
+      locked  = false;
+    }, 1100);
+  }
+}
+
+// ---- End game ----
+function endGame() {
+  clearInterval(timerInt);
+  gameActive = false;
+
+  // Star rating
+  let starStr, msg;
+  if (moveCount <= 18) {
+    starStr = '⭐⭐⭐'; msg = 'Perfect play! Legendary!';
+  } else if (moveCount <= 24) {
+    starStr = '⭐⭐'; msg = 'Great memory! Well done.';
+  } else {
+    starStr = '⭐'; msg = 'Keep practicing — you\'ll get there!';
+  }
+
+  $finalMoves.textContent = moveCount;
+  $finalTime.textContent  = formatTime(seconds);
+  $stars.textContent      = starStr;
+  $starMsg.textContent    = msg;
+
+  // Small delay before showing overlay (let last match animate)
+  setTimeout(() => $overlay.classList.add('active'), 700);
+}
+
+// ---- Buttons ----
+document.getElementById('btnRestart').addEventListener('click', buildGrid);
+document.getElementById('btnOverlay').addEventListener('click', buildGrid);
+
+// ---- Init ----
+buildGrid();
+</script>
+</body>
+</html>
