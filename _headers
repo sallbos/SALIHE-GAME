@@ -1,7 +1,5 @@
-/*
-  SALEH GAMING — Netlify _headers
-  Security and caching headers for static hosting
-*/
+
+# SALEH GAMING - Security and caching headers
 
 # All pages: security headers
 /*
@@ -24,7 +22,7 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Game files: moderate cache (1 day)
+# Game files: moderate cache
 /games/*
   Cache-Control: public, max-age=86400
 
